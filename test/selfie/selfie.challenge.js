@@ -13,21 +13,25 @@ describe("[Challenge] Selfie", function () {
     /** SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE */
     [deployer, player] = await ethers.getSigners();
 
+    // Deploy Damn Valuable Token Snapshot
     token = await (
       await ethers.getContractFactory("DamnValuableTokenSnapshot", deployer)
     ).deploy(TOKEN_INITIAL_SUPPLY);
 
+    // Deploy governance contract
     governance = await (
       await ethers.getContractFactory("SimpleGovernance", deployer)
     ).deploy(token.address);
     expect(await governance.getActionCounter()).to.eq(1);
 
+    // Deploy the pool
     pool = await (
       await ethers.getContractFactory("SelfiePool", deployer)
     ).deploy(token.address, governance.address);
     expect(await pool.token()).to.eq(token.address);
     expect(await pool.governance()).to.eq(governance.address);
 
+    // Fund the pool
     await token.transfer(pool.address, TOKENS_IN_POOL);
     await token.snapshot();
     expect(await token.balanceOf(pool.address)).to.be.equal(TOKENS_IN_POOL);
@@ -37,6 +41,16 @@ describe("[Challenge] Selfie", function () {
 
   it("Execution", async function () {
     /** CODE YOUR SOLUTION HERE */
+
+    // STEPS:
+    //  1. Borrow all the tokens from the pool with a free flashLoan
+    //  2. During the flash loan:
+    //    - Make a snapshot of the token holders
+    //    - Call queueAction() on SimpleGovernance targeting emergencyExit() in the SelfiePool
+    //    - Return the tokens to the pool
+    //  5. Wait 2 days
+    //  6. Call executeAction() and send all the tokens to yourself
+
     const attackContract = await (
       await ethers.getContractFactory("AttackSelfie", player)
     ).deploy(governance.address, pool.address, token.address);
